@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Gemini Assistant Mockup</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed-dim": "#ffb596",
+                    "surface-dim": "#d0dbed",
+                    "primary": "#004ac6",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "primary-fixed": "#dbe1ff",
+                    "outline": "#737686",
+                    "on-secondary-fixed": "#191c1e",
+                    "surface-bright": "#f8f9ff",
+                    "on-error-container": "#93000a",
+                    "surface-container-low": "#eff4ff",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "surface-container-highest": "#d9e3f6",
+                    "surface-container": "#e6eeff",
+                    "on-surface-variant": "#434655",
+                    "inverse-primary": "#b4c5ff",
+                    "on-error": "#ffffff",
+                    "secondary-fixed-dim": "#c5c6c8",
+                    "surface-variant": "#d9e3f6",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "secondary-container": "#dee0e2",
+                    "tertiary-fixed": "#ffdbcd",
+                    "on-tertiary-fixed": "#360f00",
+                    "inverse-on-surface": "#eaf1ff",
+                    "outline-variant": "#c3c6d7",
+                    "on-tertiary-container": "#ffede6",
+                    "on-secondary": "#ffffff",
+                    "tertiary": "#943700",
+                    "surface-container-high": "#dee9fc",
+                    "on-secondary-container": "#606365",
+                    "secondary": "#5c5f60",
+                    "inverse-surface": "#27313f",
+                    "on-surface": "#121c2a",
+                    "on-background": "#121c2a",
+                    "primary-container": "#2563eb",
+                    "tertiary-container": "#bc4800",
+                    "background": "#f8f9ff",
+                    "on-primary-fixed": "#00174b",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-container": "#eeefff",
+                    "error": "#ba1a1a",
+                    "on-primary": "#ffffff",
+                    "on-secondary-fixed-variant": "#444749",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed": "#e1e2e4",
+                    "surface-container-lowest": "#ffffff",
+                    "surface": "#f8f9ff",
+                    "surface-tint": "#0053db"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "base": "4px",
+                    "xl": "32px",
+                    "lg": "24px",
+                    "md": "16px",
+                    "container-margin": "20px",
+                    "xs": "4px",
+                    "bubble-gap": "12px",
+                    "sm": "8px"
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f8f9ff;
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            z-index: 10;
+        }
+        .screen-hidden-right { transform: translateX(100%); opacity: 0; pointer-events: none; }
+        .screen-hidden-left { transform: translateX(-100%); opacity: 0; pointer-events: none; }
+        .screen-hidden-bottom { transform: translateY(100%); opacity: 0; pointer-events: none; }
+        .screen-active { transform: translateX(0) translateY(0); opacity: 1; z-index: 20; }
+
+        .terminal-bg { background-color: #0d1117; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface h-screen w-screen relative">
+
+    <!-- SCREEN: CHAT -->
+    <div id="screen-chat" class="screen screen-active flex flex-col">
+        <header class="flex items-center justify-between px-container-margin h-16 w-full bg-surface shadow-sm shrink-0">
+            <div class="flex items-center gap-3">
+                <button onclick="showScreen('workspace')" class="p-2 -ml-2 rounded-full hover:bg-surface-container-high transition-colors">
+                    <span class="material-symbols-outlined">menu</span>
+                </button>
+                <h1 class="text-xl font-bold text-primary">Gemini Assistant</h1>
+            </div>
+            <div class="flex items-center gap-1">
+                <button onclick="showScreen('logs')" class="p-2 rounded-full hover:bg-surface-container-high transition-colors">
+                    <span class="material-symbols-outlined">terminal</span>
+                </button>
+                <button onclick="showScreen('settings')" class="p-2 rounded-full hover:bg-surface-container-high transition-colors">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-grow overflow-y-auto p-container-margin space-y-6">
+            <!-- AI Message -->
+            <div class="flex justify-start">
+                <div class="max-w-[85%] bg-surface-container rounded-2xl rounded-tl-sm p-4 shadow-sm border border-outline-variant/10">
+                    <p class="text-on-surface text-[15px] leading-relaxed">Hello! I'm your Gemini-powered assistant. I can help you write code, manage your workspace, or just chat. How can I assist you today?</p>
+                </div>
+            </div>
+
+            <!-- User Message -->
+            <div class="flex justify-end">
+                <div class="max-w-[85%] bg-primary text-white rounded-2xl rounded-tr-sm p-4 shadow-md">
+                    <p class="text-[15px] leading-relaxed">Can you help me organize my project workspace and draft a professional update email?</p>
+                </div>
+            </div>
+
+            <!-- AI Message -->
+            <div class="flex justify-start">
+                <div class="max-w-[85%] bg-surface-container rounded-2xl rounded-tl-sm p-4 shadow-sm border border-outline-variant/10">
+                    <p class="text-on-surface text-[15px] leading-relaxed">Of course! Let's start by looking at your workspace. I see several folders already. Which project should we focus on first?</p>
+                    <div class="mt-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        <button class="shrink-0 px-4 py-2 rounded-full bg-white border border-outline-variant text-sm text-primary font-medium hover:bg-primary-fixed/20 transition-colors">Project Alpha</button>
+                        <button class="shrink-0 px-4 py-2 rounded-full bg-white border border-outline-variant text-sm text-primary font-medium hover:bg-primary-fixed/20 transition-colors">Mobile Redesign</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="p-4 bg-surface border-t border-outline-variant/20 shrink-0">
+            <div class="flex items-center gap-3 bg-surface-container-low border border-outline-variant rounded-2xl p-2 focus-within:ring-2 focus-within:ring-primary transition-all">
+                <button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+                    <span class="material-symbols-outlined">add</span>
+                </button>
+                <input type="text" placeholder="Message Gemini..." class="flex-grow bg-transparent border-none focus:ring-0 text-sm py-2 px-1">
+                <button class="p-2 bg-primary text-white rounded-xl shadow-lg active:scale-95 transition-transform">
+                    <span class="material-symbols-outlined">send</span>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- SCREEN: WORKSPACE -->
+    <div id="screen-workspace" class="screen screen-hidden-left flex flex-col">
+        <header class="flex items-center justify-between px-container-margin h-16 w-full bg-surface shadow-sm shrink-0">
+            <div class="flex items-center gap-3">
+                <button onclick="showScreen('chat')" class="p-2 -ml-2 rounded-full hover:bg-surface-container-high transition-colors">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </button>
+                <h1 class="text-xl font-bold text-on-surface">Workspace</h1>
+            </div>
+            <button class="p-2 rounded-full hover:bg-surface-container-high text-primary">
+                <span class="material-symbols-outlined">create_new_folder</span>
+            </button>
+        </header>
+
+        <div class="p-container-margin shrink-0">
+            <div class="flex items-center gap-3 bg-surface-container-lowest border border-outline-variant rounded-xl px-4 py-2">
+                <span class="material-symbols-outlined text-on-surface-variant">search</span>
+                <input type="text" placeholder="Search files..." class="bg-transparent border-none focus:ring-0 text-sm w-full">
+            </div>
+        </div>
+
+        <main class="flex-grow overflow-y-auto px-container-margin space-y-1">
+            <!-- Folders -->
+            <div class="flex items-center p-3 rounded-xl hover:bg-surface-container transition-colors cursor-pointer group">
+                <span class="material-symbols-outlined text-primary-container mr-3" style="font-variation-settings: 'FILL' 1;">folder</span>
+                <div class="flex-grow">
+                    <h3 class="text-[15px] font-medium">Project Alpha</h3>
+                    <p class="text-xs text-on-surface-variant">4 items • Modified 2h ago</p>
+                </div>
+                <span class="material-symbols-outlined text-on-surface-variant text-lg">chevron_right</span>
+            </div>
+            <div class="flex items-center p-3 rounded-xl hover:bg-surface-container transition-colors cursor-pointer group">
+                <span class="material-symbols-outlined text-primary-container mr-3" style="font-variation-settings: 'FILL' 1;">folder</span>
+                <div class="flex-grow">
+                    <h3 class="text-[15px] font-medium">Drafts</h3>
+                    <p class="text-xs text-on-surface-variant">12 items • Modified yesterday</p>
+                </div>
+                <span class="material-symbols-outlined text-on-surface-variant text-lg">chevron_right</span>
+            </div>
+            <!-- Files -->
+            <div class="flex items-center p-3 rounded-xl hover:bg-surface-container transition-colors cursor-pointer group">
+                <span class="material-symbols-outlined text-on-surface-variant mr-3">description</span>
+                <div class="flex-grow">
+                    <h3 class="text-[15px] font-medium">proposal.pdf</h3>
+                    <p class="text-xs text-on-surface-variant">2.4 MB • Oct 14</p>
+                </div>
+            </div>
+            <div class="flex items-center p-3 rounded-xl hover:bg-surface-container transition-colors cursor-pointer group">
+                <span class="material-symbols-outlined text-on-surface-variant mr-3">javascript</span>
+                <div class="flex-grow">
+                    <h3 class="text-[15px] font-medium">script.js</h3>
+                    <p class="text-xs text-on-surface-variant">12 KB • Oct 15</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- SCREEN: LOGS -->
+    <div id="screen-logs" class="screen screen-hidden-bottom flex flex-col terminal-bg">
+        <header class="flex items-center justify-between px-container-margin h-16 w-full bg-surface shrink-0">
+            <h1 class="text-xl font-bold text-on-surface">Tool Logs</h1>
+            <div class="flex items-center gap-2">
+                <button class="px-3 py-1 text-sm font-medium text-primary hover:bg-primary-fixed/20 rounded-lg">Clear</button>
+                <button onclick="showScreen('chat')" class="p-2 rounded-full hover:bg-surface-container-high transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-grow overflow-y-auto p-4 font-mono text-sm space-y-4">
+            <!-- Log Entry 1 -->
+            <div class="bg-gray-900/50 rounded-xl p-4 border border-gray-800">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-blue-400 font-bold">shell_exec</span>
+                    <span class="text-green-400 text-xs flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[14px]">check_circle</span> Success
+                    </span>
+                </div>
+                <div class="text-gray-400 text-xs mb-2">14:20:05</div>
+                <div class="bg-black/40 p-3 rounded-lg text-gray-300 text-xs overflow-x-auto">
+                    <span class="text-gray-500">$</span> ls -R app/src<br>
+                    Exit code: 0<br>
+                    STDOUT: app/src/main, app/src/test...
+                </div>
+            </div>
+
+            <!-- Log Entry 2 -->
+            <div class="bg-gray-900/50 rounded-xl p-4 border border-gray-800">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-blue-400 font-bold">view_file</span>
+                    <span class="text-green-400 text-xs flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[14px]">check_circle</span> Success
+                    </span>
+                </div>
+                <div class="text-gray-400 text-xs mb-2">14:20:12</div>
+                <div class="bg-black/40 p-3 rounded-lg text-gray-300 text-xs overflow-x-auto">
+                    Path: README.md<br>
+                    Size: 1.2 KB
+                </div>
+            </div>
+
+            <!-- Log Entry 3 -->
+            <div class="bg-gray-900/50 rounded-xl p-4 border border-red-900/30">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-blue-400 font-bold">git_commit</span>
+                    <span class="text-red-400 text-xs flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[14px]">error</span> Failure
+                    </span>
+                </div>
+                <div class="text-gray-400 text-xs mb-2">14:21:45</div>
+                <div class="bg-black/40 p-3 rounded-lg text-red-300 text-xs">
+                    Error: Nothing to commit, working tree clean.
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- SCREEN: SETTINGS -->
+    <div id="screen-settings" class="screen screen-hidden-right flex flex-col">
+        <header class="flex items-center px-container-margin h-16 w-full bg-surface shadow-sm shrink-0">
+            <button onclick="showScreen('chat')" class="p-2 -ml-2 rounded-full hover:bg-surface-container-high transition-colors mr-2">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </button>
+            <h1 class="text-xl font-bold text-primary">Settings</h1>
+        </header>
+
+        <main class="flex-grow overflow-y-auto p-container-margin space-y-8">
+            <!-- Illustration -->
+            <div class="bg-primary-container rounded-3xl h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full"></div>
+                <span class="material-symbols-outlined text-4xl mb-1" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+                <span class="text-sm font-bold uppercase tracking-widest">Gemini Assistant</span>
+            </div>
+
+            <!-- API Config -->
+            <section class="space-y-4">
+                <div class="flex items-center gap-2 text-on-surface-variant">
+                    <span class="material-symbols-outlined text-lg">key</span>
+                    <h2 class="font-bold">API Configuration</h2>
+                </div>
+                <div class="bg-surface-container-lowest border border-outline-variant rounded-2xl p-4 space-y-4 shadow-sm">
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-on-surface-variant">Gemini API Key</label>
+                        <div class="relative">
+                            <input type="password" value="••••••••••••••••" class="w-full bg-surface-container-low border-outline-variant rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <span class="absolute right-3 top-3 material-symbols-outlined text-on-surface-variant text-lg">visibility</span>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-on-surface-variant">Model ID</label>
+                        <div class="relative">
+                            <select class="w-full bg-surface-container-low border-outline-variant rounded-xl p-3 text-sm appearance-none focus:ring-2 focus:ring-primary">
+                                <option>gemini-1.5-pro</option>
+                                <option>gemini-1.5-flash</option>
+                            </select>
+                            <span class="absolute right-3 top-3 material-symbols-outlined text-on-surface-variant pointer-events-none">expand_more</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Appearance -->
+            <section class="space-y-4">
+                <div class="flex items-center gap-2 text-on-surface-variant">
+                    <span class="material-symbols-outlined text-lg">palette</span>
+                    <h2 class="font-bold">Appearance</h2>
+                </div>
+                <div class="bg-surface-container-lowest border border-outline-variant rounded-2xl p-4 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="font-medium">Dark Mode</p>
+                        <p class="text-xs text-on-surface-variant">Switch theme</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer">
+                        <div class="w-11 h-6 bg-surface-container-high rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Workspace -->
+            <section class="space-y-4">
+                <div class="flex items-center gap-2 text-on-surface-variant">
+                    <span class="material-symbols-outlined text-lg">database</span>
+                    <h2 class="font-bold">Workspace</h2>
+                </div>
+                <button class="w-full p-4 border-2 border-error text-error rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-error/5 transition-colors active:scale-95">
+                    <span class="material-symbols-outlined">delete_forever</span>
+                    Reset Workspace Data
+                </button>
+            </section>
+
+            <footer class="text-center py-6">
+                <p class="text-xs text-on-surface-variant/50">Version 1.2.0 • Made with Gemini</p>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        function showScreen(screenId) {
+            // Get all screens
+            const screens = ['chat', 'workspace', 'logs', 'settings'];
+
+            screens.forEach(id => {
+                const el = document.getElementById('screen-' + id);
+                if (id === screenId) {
+                    el.classList.add('screen-active');
+                    el.classList.remove('screen-hidden-right', 'screen-hidden-left', 'screen-hidden-bottom');
+                } else {
+                    el.classList.remove('screen-active');
+
+                    // Add appropriate hide classes for transitions
+                    if (id === 'workspace') {
+                        el.classList.add('screen-hidden-left');
+                    } else if (id === 'settings') {
+                        el.classList.add('screen-hidden-right');
+                    } else if (id === 'logs') {
+                        el.classList.add('screen-hidden-bottom');
+                    } else {
+                        // Default hide for chat when others are active
+                        // Chat is in the center, so if settings is active, chat slides left
+                        if (screenId === 'settings') el.classList.add('screen-hidden-left');
+                        else if (screenId === 'workspace') el.classList.add('screen-hidden-right');
+                        else el.classList.add('screen-hidden-left'); // arbitrary
+                    }
+                }
+            });
+        }
+
+        // Initial setup
+        window.onload = () => {
+            showScreen('chat');
+        };
+    </script>
+</body>
+</html>
