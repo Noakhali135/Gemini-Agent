@@ -12,6 +12,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -33,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -69,6 +75,13 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
@@ -193,6 +206,18 @@ val PRESET_MODELS = listOf(
         name = "Gemini 3.5 Flash",
         description = "Default standard for simple summaries or general Q&A.",
         supportsThinking = false
+    ),
+    ModelPreset(
+        id = "gemma-4-26b-a4b-it",
+        name = "Gemma 4 26B A4B IT",
+        description = "Gemma model, tuned for reasoning and chat instructions.",
+        supportsThinking = false
+    ),
+    ModelPreset(
+        id = "gemma-4-31B-it",
+        name = "Gemma 4 31B IT",
+        description = "Large-scale parameter structure Gemma model refined for code and instructions.",
+        supportsThinking = false
     )
 )
 
@@ -219,6 +244,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val isStreaming by viewModel.isStreaming.collectAsState()
     val streamingThought by viewModel.currentStreamingThought.collectAsState()
     val streamingAnswer by viewModel.currentStreamingAnswer.collectAsState()
+    val activeAgentState by viewModel.activeAgentState.collectAsState()
 
     // Navigation and Sheets triggers
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -623,7 +649,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                                         horizontalArrangement = Arrangement.Center,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(imageVector = Icons.Default.Settings, contentDescription = "Workspace tree listing view", modifier = Modifier.size(18.dp))
+                                        Icon(imageVector = Icons.Default.Code, contentDescription = "Workspace tree listing view", modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text("Workspace", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                     }
@@ -633,6 +659,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
                             if (activeTab == 1) {
                                 WorkspaceView(viewModel = viewModel, modifier = Modifier.weight(1f))
                             } else {
+                                // Dynamic LangGraph loop monitor
+                                LangGraphSection(
+                                    activeState = activeAgentState,
+                                    isStreaming = isStreaming
+                                )
+
                                 if (messages.isEmpty() && !isStreaming) {
                                     // Empty chat timeline: display suggestions
                                     Box(
@@ -1255,30 +1287,55 @@ fun ChatMessageBubble(
     var showRawText by remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Top
     ) {
         if (!isUser) {
-            Icon(
-                imageVector = Icons.Default.AutoAwesome,
-                contentDescription = "AI icon",
-                tint = MaterialTheme.colorScheme.primary,
+            Surface(
                 modifier = Modifier
-                    .padding(top = 4.dp, end = 8.dp)
-                    .size(24.dp)
-            )
+                    .padding(top = 4.dp, end = 10.dp)
+                    .size(32.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "AI icon",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
         }
 
         Column(
-            modifier = Modifier.widthIn(max = 290.dp)
+            modifier = Modifier.fillMaxWidth(if (isUser) 0.86f else 0.82f),
+            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
         ) {
             // Label metadata for bubbles
-            Text(
-                text = if (isUser) "You" else "Gemini Model Thread",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-            )
+            ) {
+                Text(
+                    text = if (isUser) "You" else "Gemini Intelligent Agent",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                    )
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "• Active Model",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                )
+            }
 
             Surface(
                 color = when {
@@ -1297,7 +1354,9 @@ fun ChatMessageBubble(
                     bottomStart = if (isUser) 16.dp else 4.dp,
                     bottomEnd = if (isUser) 4.dp else 16.dp
                 ),
-                border = if (message.isError) BorderStroke(1.dp, MaterialTheme.colorScheme.error) else null
+                tonalElevation = if (isUser) 1.dp else 2.dp,
+                shadowElevation = if (isUser) 0.5.dp else 1.dp,
+                border = if (message.isError) BorderStroke(1.dp, MaterialTheme.colorScheme.error) else BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             ) {
                 Column(
                     modifier = Modifier.padding(12.dp)
@@ -1427,8 +1486,15 @@ fun ChatMessageBubble(
                                     onClick = { showRawText = !showRawText },
                                     modifier = Modifier.padding(end = 8.dp)
                                 ) {
+                                    Icon(
+                                        imageVector = if (showRawText) Icons.Default.Visibility else Icons.Default.Code,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = if (showRawText) "✨ Visual View" else "📄 Raw Output",
+                                        text = if (showRawText) "Visual View" else "Raw Output",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary
@@ -1507,28 +1573,52 @@ fun StreamingMsgBubble(
     )
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Top
     ) {
-        Icon(
-            imageVector = Icons.Default.AutoAwesome,
-            contentDescription = "AI Streaming icon",
-            tint = MaterialTheme.colorScheme.primary,
+        Surface(
             modifier = Modifier
-                .padding(top = 4.dp, end = 8.dp)
-                .size(24.dp)
-        )
+                .padding(top = 4.dp, end = 10.dp)
+                .size(32.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = "AI icon",
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
 
         Column(
-            modifier = Modifier.widthIn(max = 290.dp)
+            modifier = Modifier.fillMaxWidth(0.82f)
         ) {
-            Text(
-                text = "$modelLabel (Streaming)",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-            )
+            ) {
+                Text(
+                    text = modelLabel,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "• Generating Live",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
 
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -1539,6 +1629,8 @@ fun StreamingMsgBubble(
                     bottomStart = 4.dp,
                     bottomEnd = 16.dp
                 ),
+                tonalElevation = 2.dp,
+                shadowElevation = 1.dp,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
             ) {
                 Column(
@@ -1644,8 +1736,15 @@ fun StreamingMsgBubble(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 TextButton(onClick = { streamShowRawText = !streamShowRawText }) {
+                                    Icon(
+                                        imageVector = if (streamShowRawText) Icons.Default.Visibility else Icons.Default.Code,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = if (streamShowRawText) "✨ Visual View" else "📄 Raw View",
+                                        text = if (streamShowRawText) "Visual View" else "Raw View",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary
@@ -3441,6 +3540,11 @@ fun WorkspaceView(
     var selectedFileForEditing by remember { mutableStateOf<com.example.data.workspace.WorkspaceItem.FileItem?>(null) }
     var editingFileContent by remember { mutableStateOf("") }
 
+    // Lifted states for high-fidelity live web preview
+    var showFullScreenPreview by remember { mutableStateOf(false) }
+    var previewRefreshKey by remember { mutableStateOf(0) }
+    var previewFileItem by remember { mutableStateOf<com.example.data.workspace.WorkspaceItem.FileItem?>(null) }
+
     // State inputs
     var newFileName by remember { mutableStateOf("") }
     var newFileContent by remember { mutableStateOf("") }
@@ -3467,12 +3571,15 @@ fun WorkspaceView(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("workspace_view_container")
+    Box(
+        modifier = Modifier.fillMaxSize()
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .testTag("workspace_view_container")
+        ) {
         // Custom Workspace Folder Configuration Panel
         Card(
             modifier = Modifier
@@ -3495,10 +3602,11 @@ fun WorkspaceView(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "📁",
-                            fontSize = 20.sp,
-                            modifier = Modifier.padding(end = 8.dp)
+                        Icon(
+                            imageVector = Icons.Default.Folder,
+                            contentDescription = "Workspace Folder",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 8.dp).size(24.dp)
                         )
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
@@ -3557,7 +3665,18 @@ fun WorkspaceView(
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
-                            Text("📁 Select Folder (Android System Picker)", fontWeight = FontWeight.SemiBold)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FolderOpen,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Select Folder (Android System Picker)", fontWeight = FontWeight.SemiBold)
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
@@ -3595,7 +3714,12 @@ fun WorkspaceView(
                                         onClick = { showDirectoryPicker = true },
                                         modifier = Modifier.testTag("workspace_select_folder_icon")
                                     ) {
-                                        Text("📁", fontSize = 18.sp)
+                                        Icon(
+                                            imageVector = Icons.Default.FolderOpen,
+                                            contentDescription = "Browse directory fallback",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
                                     }
                                 },
                                 colors = OutlinedTextFieldDefaults.colors(
@@ -3962,345 +4086,181 @@ fun WorkspaceView(
 
     if (selectedFileForEditing != null) {
         val fItem = selectedFileForEditing!!
-        var showFullScreenPreview by remember { mutableStateOf(false) }
-        var previewRefreshKey by remember { mutableStateOf(0) }
 
         Dialog(
-            onDismissRequest = { selectedFileForEditing = null },
+            onDismissRequest = { 
+                selectedFileForEditing = null 
+                showFullScreenPreview = false
+            },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.85f)
-                    .padding(16.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 6.dp
+                modifier = if (showFullScreenPreview) {
+                    Modifier.fillMaxSize()
+                } else {
+                    Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.85f)
+                        .padding(16.dp)
+                },
+                shape = if (showFullScreenPreview) {
+                    RoundedCornerShape(0.dp)
+                } else {
+                    RoundedCornerShape(16.dp)
+                },
+                color = if (showFullScreenPreview) {
+                    Color(0xFF121212)
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+                tonalElevation = if (showFullScreenPreview) 0.dp else 6.dp
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                if (showFullScreenPreview) {
+                    val previewFileContent = remember(fItem, previewRefreshKey) {
+                        try {
+                            if (com.example.data.workspace.WorkspaceManager.isUsingSaf(context)) {
+                                val rootDoc = com.example.data.workspace.WorkspaceManager.getSafRoot(context)
+                                if (rootDoc != null) {
+                                    val doc = com.example.data.workspace.WorkspaceManager.findDocumentByPath(rootDoc, fItem.relativePath)
+                                    if (doc != null && doc.isFile) {
+                                        context.contentResolver.openInputStream(doc.uri)?.use { inStream ->
+                                            inStream.bufferedReader().readText()
+                                        } ?: ""
+                                    } else ""
+                                } else ""
+                            } else {
+                                val rootFolder = com.example.data.workspace.WorkspaceManager.getWorkspaceRoot(context)
+                                val file = java.io.File(rootFolder, fItem.relativePath)
+                                if (file.exists() && file.isFile) {
+                                    file.readText()
+                                } else ""
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            ""
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Editing: ${fItem.name}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = fItem.relativePath,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            val isWebbyFile = fItem.name.endsWith(".html", ignoreCase = true) || fItem.name.endsWith(".htm", ignoreCase = true)
-                            if (isWebbyFile) {
-                                Button(
-                                    onClick = { showFullScreenPreview = true },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    ),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                    modifier = Modifier.padding(end = 8.dp).height(36.dp).testTag("editor_run_fullscreen_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = "Run App Fullscreen",
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Run Page", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            IconButton(onClick = { selectedFileForEditing = null }) {
-                                Icon(imageVector = Icons.Default.Close, contentDescription = "Close editor")
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    var editorTab by remember { mutableStateOf(0) } // 0 = Code, 1 = HTML WebView Preview
-
-                    androidx.compose.material3.TabRow(
-                        selectedTabIndex = editorTab,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        containerColor = Color.Transparent
-                    ) {
-                        androidx.compose.material3.Tab(
-                            selected = editorTab == 0,
-                            onClick = { editorTab = 0 },
-                            text = { Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Code Editor")
-                            }}
-                        )
-                        androidx.compose.material3.Tab(
-                            selected = editorTab == 1,
-                            onClick = { editorTab = 1 },
-                            text = { Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("HTML Live Preview")
-                            }}
-                        )
-                    }
-
-                    if (editorTab == 1) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "📐 Embed view (tight layout)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                            Button(
-                                onClick = { showFullScreenPreview = true },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondary,
-                                    contentColor = MaterialTheme.colorScheme.onSecondary
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                modifier = Modifier.height(28.dp).testTag("editor_tab_fullscreen_button")
-                            ) {
-                                Icon(Icons.Default.Fullscreen, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Launch Full Screen Run", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            androidx.compose.ui.viewinterop.AndroidView(
-                                factory = { ctx ->
-                                    android.webkit.WebView(ctx).apply {
-                                        settings.apply {
-                                            javaScriptEnabled = true
-                                            domStorageEnabled = true
-                                            allowFileAccess = true
-                                            allowContentAccess = true
-                                            builtInZoomControls = true
-                                            displayZoomControls = false
-                                        }
-                                        webViewClient = object : android.webkit.WebViewClient() {
-                                            override fun shouldInterceptRequest(
-                                                view: android.webkit.WebView?,
-                                                request: android.webkit.WebResourceRequest?
-                                            ): android.webkit.WebResourceResponse? {
-                                                val url = request?.url ?: return null
-                                                if (url.host == "app.workspace") {
-                                                    val rawPath = url.path?.removePrefix("/") ?: ""
-                                                    val cleanPath = try {
-                                                        java.io.File("/", rawPath).canonicalPath.removePrefix("/")
-                                                    } catch (e: Exception) {
-                                                        rawPath
-                                                    }
-                                                    
-                                                    if (cleanPath == fItem.relativePath) {
-                                                        val dataBytes = editingFileContent.toByteArray(Charsets.UTF_8)
-                                                        return android.webkit.WebResourceResponse(
-                                                            "text/html",
-                                                            "UTF-8",
-                                                            java.io.ByteArrayInputStream(dataBytes)
-                                                        )
-                                                    }
-                                                    
-                                                    val mimeType = when (cleanPath.substringAfterLast('.', "").lowercase()) {
-                                                        "css" -> "text/css"
-                                                        "js" -> "application/javascript"
-                                                        "json" -> "application/json"
-                                                        "png" -> "image/png"
-                                                        "jpg", "jpeg" -> "image/jpeg"
-                                                        "gif" -> "image/gif"
-                                                        "svg" -> "image/svg+xml"
-                                                        "html", "htm" -> "text/html"
-                                                        else -> "text/plain"
-                                                    }
-                                                    
-                                                    try {
-                                                        if (com.example.data.workspace.WorkspaceManager.isUsingSaf(context)) {
-                                                            val rootDoc = com.example.data.workspace.WorkspaceManager.getSafRoot(context)
-                                                            if (rootDoc != null) {
-                                                                val doc = com.example.data.workspace.WorkspaceManager.findDocumentByPath(rootDoc, cleanPath)
-                                                                if (doc != null && doc.isFile) {
-                                                                    val inStream = context.contentResolver.openInputStream(doc.uri)
-                                                                    if (inStream != null) {
-                                                                        return android.webkit.WebResourceResponse(mimeType, "UTF-8", inStream)
-                                                                    }
-                                                                }
-                                                            }
-                                                        } else {
-                                                            val rootFolder = com.example.data.workspace.WorkspaceManager.getWorkspaceRoot(context)
-                                                            val file = java.io.File(rootFolder, cleanPath)
-                                                            if (file.exists() && file.isFile) {
-                                                                return android.webkit.WebResourceResponse(mimeType, "UTF-8", java.io.FileInputStream(file))
-                                                            }
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        e.printStackTrace()
-                                                    }
-                                                }
-                                                return super.shouldInterceptRequest(view, request)
-                                            }
-                                        }
-                                    }
-                                },
-                                update = { webView ->
-                                    webView.loadDataWithBaseURL(
-                                        "https://app.workspace/${fItem.relativePath}",
-                                        editingFileContent,
-                                        "text/html",
-                                        "UTF-8",
-                                        null
-                                    )
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    } else {
-                        OutlinedTextField(
-                            value = editingFileContent,
-                            onValueChange = { editingFileContent = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .testTag("code_editor_textarea"),
-                            textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
-                            maxLines = 1000
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val clipboardManager = LocalClipboardManager.current
-                        TextButton(
-                            onClick = {
-                                clipboardManager.setText(AnnotatedString(editingFileContent))
-                            }
-                        ) {
-                            Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy full code", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Copy Code")
-                        }
-
-                        Row {
-                            TextButton(onClick = { selectedFileForEditing = null }) {
-                                Text("Cancel")
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Button(
-                                onClick = {
-                                    com.example.data.workspace.WorkspaceManager.writeFile(context, fItem.relativePath, editingFileContent)
-                                    viewModel.triggerWorkspaceRefresh()
-                                    selectedFileForEditing = null
-                                },
-                                modifier = Modifier.testTag("dialog_edit_file_save")
-                            ) {
-                                Text("Save Changes")
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (showFullScreenPreview) {
-            Dialog(
-                onDismissRequest = { showFullScreenPreview = false },
-                properties = DialogProperties(usePlatformDefaultWidth = false)
-            ) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                                .background(Color(0xFF1E1E1E))
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Text("🌐", fontSize = 20.sp, modifier = Modifier.padding(end = 6.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Full Screen Run / Live Preview",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                IconButton(onClick = {}, enabled = false) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowBack,
+                                        contentDescription = "Back",
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                        modifier = Modifier.size(20.dp)
                                     )
+                                }
+                                IconButton(onClick = {}, enabled = false) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowForward,
+                                        contentDescription = "Forward",
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                
+                                var isRotating by remember { mutableStateOf(false) }
+                                val rotationAnim by animateFloatAsState(
+                                    targetValue = if (isRotating) 360f else 0f,
+                                    animationSpec = tween(durationMillis = 600),
+                                    finishedListener = { isRotating = false }
+                                )
+                                IconButton(
+                                    onClick = {
+                                        isRotating = true
+                                        previewRefreshKey++
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "Reload Web View",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .rotate(rotationAnim)
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp)
+                                    .height(36.dp),
+                                color = Color(0xFF2D2D2D),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0xFF444444))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = "Secure Connection",
+                                        tint = Color(0xFF81C784),
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = fItem.relativePath,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                        text = "localhost:3000/${fItem.relativePath}",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        color = Color(0xFFE0E0E0),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(
-                                    onClick = { previewRefreshKey++ },
-                                    modifier = Modifier.testTag("full_preview_refresh_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = "Reload Webview Preview",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Button(
-                                    onClick = { showFullScreenPreview = false },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                    ),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.height(34.dp).testTag("full_preview_close_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Exit fullscreen preview",
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Exit Run", style = MaterialTheme.typography.labelMedium)
-                                }
+                            Button(
+                                onClick = { showFullScreenPreview = false },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier
+                                    .height(34.dp)
+                                    .testTag("full_preview_close_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Exit Web Preview",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Exit",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
 
-                        Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Divider(color = Color(0xFF333333), thickness = 1.dp)
 
                         androidx.compose.runtime.key(previewRefreshKey) {
                             Box(
@@ -4311,7 +4271,26 @@ fun WorkspaceView(
                             ) {
                                 androidx.compose.ui.viewinterop.AndroidView(
                                     factory = { ctx ->
+                                        // Proactively ensure WebView code cache directories exist to prevent chromium opendir errors
+                                        try {
+                                            val cacheDir = ctx.cacheDir
+                                            val jsCodeCacheDir = java.io.File(cacheDir, "WebView/Default/HTTP Cache/Code Cache/js")
+                                            val wasmCodeCacheDir = java.io.File(cacheDir, "WebView/Default/HTTP Cache/Code Cache/wasm")
+                                            if (!jsCodeCacheDir.exists()) {
+                                                jsCodeCacheDir.mkdirs()
+                                            }
+                                            if (!wasmCodeCacheDir.exists()) {
+                                                wasmCodeCacheDir.mkdirs()
+                                            }
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+
                                         android.webkit.WebView(ctx).apply {
+                                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                            )
                                             settings.apply {
                                                 javaScriptEnabled = true
                                                 domStorageEnabled = true
@@ -4321,6 +4300,9 @@ fun WorkspaceView(
                                                 displayZoomControls = false
                                                 useWideViewPort = true
                                                 loadWithOverviewMode = true
+                                                textZoom = 100
+                                                databaseEnabled = true
+                                                mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                                             }
                                             webViewClient = object : android.webkit.WebViewClient() {
                                                 override fun shouldInterceptRequest(
@@ -4335,45 +4317,40 @@ fun WorkspaceView(
                                                         } catch (e: Exception) {
                                                             rawPath
                                                         }
-
-                                                        if (cleanPath == fItem.relativePath) {
-                                                            val dataBytes = editingFileContent.toByteArray(Charsets.UTF_8)
-                                                            return android.webkit.WebResourceResponse(
-                                                                "text/html",
-                                                                "UTF-8",
-                                                                java.io.ByteArrayInputStream(dataBytes)
-                                                            )
-                                                        }
-
-                                                        val mimeType = when (cleanPath.substringAfterLast('.', "").lowercase()) {
-                                                            "css" -> "text/css"
-                                                            "js" -> "application/javascript"
-                                                            "json" -> "application/json"
-                                                            "png" -> "image/png"
-                                                            "jpg", "jpeg" -> "image/jpeg"
-                                                            "gif" -> "image/gif"
-                                                            "svg" -> "image/svg+xml"
-                                                            "html", "htm" -> "text/html"
+                                                        val mimeType = when {
+                                                            cleanPath.endsWith(".html", ignoreCase = true) -> "text/html"
+                                                            cleanPath.endsWith(".css", ignoreCase = true) -> "text/css"
+                                                            cleanPath.endsWith(".js", ignoreCase = true) -> "application/javascript"
+                                                            cleanPath.endsWith(".png", ignoreCase = true) -> "image/png"
+                                                            cleanPath.endsWith(".jpg", ignoreCase = true) || cleanPath.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
+                                                            cleanPath.endsWith(".svg", ignoreCase = true) -> "image/svg+xml"
                                                             else -> "text/plain"
                                                         }
-
                                                         try {
-                                                            if (com.example.data.workspace.WorkspaceManager.isUsingSaf(context)) {
-                                                                val rootDoc = com.example.data.workspace.WorkspaceManager.getSafRoot(context)
-                                                                if (rootDoc != null) {
-                                                                    val doc = com.example.data.workspace.WorkspaceManager.findDocumentByPath(rootDoc, cleanPath)
-                                                                    if (doc != null && doc.isFile) {
-                                                                        val inStream = context.contentResolver.openInputStream(doc.uri)
-                                                                        if (inStream != null) {
-                                                                            return android.webkit.WebResourceResponse(mimeType, "UTF-8", inStream)
+                                                            if (cleanPath.equals(fItem.relativePath, ignoreCase = true)) {
+                                                                return android.webkit.WebResourceResponse(
+                                                                    mimeType,
+                                                                    "UTF-8",
+                                                                    java.io.ByteArrayInputStream(previewFileContent.toByteArray(Charsets.UTF_8))
+                                                                )
+                                                            } else {
+                                                                if (com.example.data.workspace.WorkspaceManager.isUsingSaf(context)) {
+                                                                    val rootDoc = com.example.data.workspace.WorkspaceManager.getSafRoot(context)
+                                                                    if (rootDoc != null) {
+                                                                        val doc = com.example.data.workspace.WorkspaceManager.findDocumentByPath(rootDoc, cleanPath)
+                                                                        if (doc != null && doc.isFile) {
+                                                                            val inStream = context.contentResolver.openInputStream(doc.uri)
+                                                                            if (inStream != null) {
+                                                                                return android.webkit.WebResourceResponse(mimeType, "UTF-8", inStream)
+                                                                            }
                                                                         }
                                                                     }
-                                                                }
-                                                            } else {
-                                                                val rootFolder = com.example.data.workspace.WorkspaceManager.getWorkspaceRoot(context)
-                                                                val file = java.io.File(rootFolder, cleanPath)
-                                                                if (file.exists() && file.isFile) {
-                                                                    return android.webkit.WebResourceResponse(mimeType, "UTF-8", java.io.FileInputStream(file))
+                                                                } else {
+                                                                    val rootFolder = com.example.data.workspace.WorkspaceManager.getWorkspaceRoot(context)
+                                                                    val file = java.io.File(rootFolder, cleanPath)
+                                                                    if (file.exists() && file.isFile) {
+                                                                         return android.webkit.WebResourceResponse(mimeType, "UTF-8", java.io.FileInputStream(file))
+                                                                    }
                                                                 }
                                                             }
                                                         } catch (e: Exception) {
@@ -4386,22 +4363,130 @@ fun WorkspaceView(
                                         }
                                     },
                                     update = { webView ->
-                                        webView.loadDataWithBaseURL(
-                                            "https://app.workspace/${fItem.relativePath}",
-                                            editingFileContent,
-                                            "text/html",
-                                            "UTF-8",
-                                            null
-                                        )
+                                        val currentTag = webView.tag as? String
+                                        if (currentTag != previewFileContent) {
+                                            webView.tag = previewFileContent
+                                            webView.loadDataWithBaseURL(
+                                                "https://app.workspace/${fItem.relativePath}",
+                                                previewFileContent,
+                                                "text/html",
+                                                "UTF-8",
+                                                null
+                                            )
+                                            webView.scrollTo(0, 0)
+                                        }
                                     },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
                         }
                     }
+                } else {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Editing: ${fItem.name}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = fItem.relativePath,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val isWebbyFile = fItem.name.endsWith(".html", ignoreCase = true) || fItem.name.endsWith(".htm", ignoreCase = true)
+                                if (isWebbyFile) {
+                                    Button(
+                                        onClick = {
+                                            com.example.data.workspace.WorkspaceManager.writeFile(context, fItem.relativePath, editingFileContent)
+                                            viewModel.triggerWorkspaceRefresh()
+                                            showFullScreenPreview = true
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                        modifier = Modifier.padding(end = 8.dp).height(36.dp).testTag("editor_run_fullscreen_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PlayArrow,
+                                            contentDescription = "Run App Fullscreen",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Run Page", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                IconButton(onClick = { selectedFileForEditing = null }) {
+                                    Icon(imageVector = Icons.Default.Close, contentDescription = "Close editor")
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = editingFileContent,
+                            onValueChange = { editingFileContent = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .testTag("code_editor_textarea"),
+                            textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp),
+                            maxLines = 1000
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val clipboardManager = LocalClipboardManager.current
+                            TextButton(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(editingFileContent))
+                                }
+                            ) {
+                                Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy full code", modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Copy Code")
+                            }
+
+                            Row {
+                                TextButton(onClick = { selectedFileForEditing = null }) {
+                                    Text("Cancel")
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(
+                                    onClick = {
+                                        com.example.data.workspace.WorkspaceManager.writeFile(context, fItem.relativePath, editingFileContent)
+                                        viewModel.triggerWorkspaceRefresh()
+                                        selectedFileForEditing = null
+                                    },
+                                    modifier = Modifier.testTag("dialog_edit_file_save")
+                                ) {
+                                    Text("Save Changes")
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
     }
 }
 
@@ -4642,7 +4727,12 @@ fun DirectoryPickerDialog(
                                         .padding(horizontal = 12.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("📁", fontSize = 18.sp)
+                                    Icon(
+                                        imageVector = Icons.Default.Folder,
+                                        contentDescription = "Folder",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Text(
                                         text = dir.name,
@@ -4739,6 +4829,500 @@ fun DirectoryPickerDialog(
                         Text("Select this Folder")
                     }
                 }
+            }
+        }
+    }
+}
+
+// ==========================================
+// LANGGRAPH AGENTIC LOOP STRIVER COMPONENTS
+// ==========================================
+
+data class LangGraphNode(
+    val id: String,
+    val label: String,
+    val subtitle: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val activeColor: androidx.compose.ui.graphics.Color,
+    val activeOnStates: List<String>,
+    val description: String,
+    val inputDescription: String,
+    val outputDescription: String,
+    val logicRules: String,
+    val blueprintPrompt: String
+)
+
+@Composable
+fun LangGraphSection(
+    activeState: String,
+    isStreaming: Boolean,
+    modifier: Modifier = Modifier
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    var selectedInspectorNode by remember { mutableStateOf("PLANNER") }
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    val nodes = remember {
+        listOf(
+            LangGraphNode(
+                id = "USER",
+                label = "Input Port",
+                subtitle = "User Prompt",
+                icon = androidx.compose.material.icons.Icons.Default.Info,
+                activeColor = androidx.compose.ui.graphics.Color(0xFF2196F3),
+                activeOnStates = listOf("IDLE"),
+                description = "Captures the client's prompt payload and lists file resources to prepare initial instruction layers.",
+                inputDescription = "User text query + Workspace configuration parameters",
+                outputDescription = "Sanitized intent forwarded to the Routing / Planner Node",
+                logicRules = "1. Clean input buffers.\n2. Fetch workspace hierarchy.\n3. Verify API keys.",
+                blueprintPrompt = "N/A - Native Android User Interaction"
+            ),
+            LangGraphNode(
+                id = "PLANNER",
+                label = "Planner Node",
+                subtitle = "ReAct Planning",
+                icon = androidx.compose.material.icons.Icons.Default.Settings,
+                activeColor = androidx.compose.ui.graphics.Color(0xFFFF9800),
+                activeOnStates = listOf("PLANNER"),
+                description = "Scans directory files, evaluates workspace goals, and selects proper system prompt structures.",
+                inputDescription = "Conversation message history + Current file metadata summary",
+                outputDescription = "System instruction block injected with direct workspace tree parameters",
+                logicRules = "1. Load directory listing.\n2. Format workspace JSON/XML outlines.\n3. Inject system developer rules.",
+                blueprintPrompt = "You are a ReAct-styled Coding Agent. If you need to write or change files, output <workspace_createfile>, <workspace_editfile> ..."
+            ),
+            LangGraphNode(
+                id = "THINKING",
+                label = "Thinking Flow",
+                subtitle = "Deep Reasoning",
+                icon = androidx.compose.material.icons.Icons.Default.AutoAwesome,
+                activeColor = androidx.compose.ui.graphics.Color(0xFFE040FB),
+                activeOnStates = listOf("THINKING"),
+                description = "Triggers on models supporting separate reasoning paths to stream step-by-step thoughts.",
+                inputDescription = "System prompt template + Appended conversation history data",
+                outputDescription = "Structured thinking tokens showing goal-seeking logic",
+                logicRules = "1. Observe selected model capabilities.\n2. Stream thought buffers separately for bubble display.\n3. Record duration.",
+                blueprintPrompt = "Thinking budget tokens allocated: basic (2048), hard (8192), max (16384), ultra (32768)."
+            ),
+            LangGraphNode(
+                id = "GENERATING",
+                label = "Coder Node",
+                subtitle = "Resolution Gen",
+                icon = androidx.compose.material.icons.Icons.Default.Code,
+                activeColor = androidx.compose.ui.graphics.Color(0xFF00E5FF),
+                activeOnStates = listOf("GENERATING"),
+                description = "Writes responses, creates source files, and packs mutations inside workspace XML tags.",
+                inputDescription = "Reasoning streams + Current directory layout goals",
+                outputDescription = "Text streaming content containing targeted file edits and previews",
+                logicRules = "1. Generate clean HTML/Kotlin assets.\n2. Check boundary formatting rules.\n3. Output workspace action structures.",
+                blueprintPrompt = "[ACTIONS]\n- Create file: <workspace_createfile path='...'>\n- Edit file: <workspace_editfile path='...'>"
+            ),
+            LangGraphNode(
+                id = "EXECUTOR",
+                label = "Executor Node",
+                subtitle = "Disk Write & Run",
+                icon = androidx.compose.material.icons.Icons.Default.PlayArrow,
+                activeColor = androidx.compose.ui.graphics.Color(0xFF00E676),
+                activeOnStates = listOf("EXECUTOR"),
+                description = "Parses workspace tags and applies changes (creation, edit, deletion) on local storage files.",
+                inputDescription = "Model content response containing XML action commands",
+                outputDescription = "Dynamic compilation success or error stdout logs feedback",
+                logicRules = "1. Match regex parameters.\n2. Apply atomic edits or create files.\n3. Reload workspace directory.",
+                blueprintPrompt = "N/A - Native Kotlin/Java File system handlers"
+            ),
+            LangGraphNode(
+                id = "HUMAN_VAL",
+                label = "Evaluation Gate",
+                subtitle = "Turn Complete",
+                icon = androidx.compose.material.icons.Icons.Default.Check,
+                activeColor = androidx.compose.ui.graphics.Color(0xFF90A4AE),
+                activeOnStates = listOf("HUMAN_VAL"),
+                description = "Presents intermediate outputs in the developer preview, and loops back when the user responds.",
+                inputDescription = "Updated live WebView preview + Formatted responses",
+                outputDescription = "Success sign-off OR user chat response feedback",
+                logicRules = "1. Synchronize preview WebView content.\n2. Enable chat submission bar.\n3. Transit model back to IDLE.",
+                blueprintPrompt = "User Review loop: Render output -> Edit code -> Verify preview"
+            )
+        )
+    }
+
+    val infiniteTransition = rememberInfiniteTransition()
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        ),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Glowing led signaling active status
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isStreaming) {
+                                    androidx.compose.ui.graphics.Color(0xFF00E676).copy(alpha = pulseAlpha)
+                                } else {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                }
+                            )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "LangGraph Agent Monitor",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isStreaming) "State execution in progress" else "Agent awaiting prompt",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 10.sp,
+                            color = if (isStreaming) androidx.compose.ui.graphics.Color(0xFF00E676) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Surface(
+                    onClick = { isExpanded = !isExpanded },
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isExpanded) "Collapse Graph" else "Inspect Graph",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.Close else Icons.Default.ExpandMore,
+                            contentDescription = "Expand toggle",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Current state status bar display
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(10.dp))
+                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(10.dp))
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val currentNode = nodes.find { node ->
+                    node.activeOnStates.contains(activeState)
+                } ?: nodes[0]
+
+                Icon(
+                    imageVector = currentNode.icon,
+                    contentDescription = null,
+                    tint = currentNode.activeColor,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "ACTIVE NODE:",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = currentNode.label.uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            color = currentNode.activeColor,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Text(
+                        text = currentNode.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "VISUAL DIRECTED CYCLIC STATE GRAPH",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+
+                // 3x2 Grid for the Directed Agent Graph Flow
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val rows = listOf(
+                        nodes.take(3),
+                        nodes.drop(3)
+                    )
+
+                    rows.forEach { rowNodes ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowNodes.forEach { node ->
+                                val isActive = node.activeOnStates.contains(activeState)
+                                val isSelected = selectedInspectorNode == node.id
+
+                                val cardBorderColor = if (isActive) {
+                                    node.activeColor
+                                } else if (isSelected) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant
+                                }
+
+                                Surface(
+                                    onClick = { selectedInspectorNode = node.id },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(72.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isActive) node.activeColor.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceContainer,
+                                    border = BorderStroke(
+                                        width = if (isActive || isSelected) 2.dp else 1.dp,
+                                        color = cardBorderColor
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(6.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = node.icon,
+                                            contentDescription = null,
+                                            tint = if (isActive) node.activeColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = node.label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            color = if (isActive) node.activeColor else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = node.subtitle,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontSize = 9.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Node Inspector Console
+                Spacer(modifier = Modifier.height(14.dp))
+                val inspectNode = nodes.find { it.id == selectedInspectorNode } ?: nodes[0]
+                
+                Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF1E1E1E)),
+                                border = BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFF333333)),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    // Console Title Row
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "[INSPECTING: ${inspectNode.label.uppercase()}]",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = inspectNode.activeColor,
+                                                fontFamily = FontFamily.Monospace,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        )
+                                        Surface(
+                                            onClick = {
+                                                if (inspectNode.blueprintPrompt != "N/A - Direct User Interface Capture" && inspectNode.blueprintPrompt != "N/A - Native Kotlin/Java File system handlers") {
+                                                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(inspectNode.blueprintPrompt))
+                                                    android.widget.Toast.makeText(context, "System prompt copied!", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = androidx.compose.ui.graphics.Color(0xFF2C2C2C)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.ContentCopy,
+                                                    contentDescription = "Copy",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(10.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "Copy System Prompt",
+                                                    fontSize = 8.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    color = androidx.compose.ui.graphics.Color.White
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Divider(color = androidx.compose.ui.graphics.Color(0xFF333333), thickness = 0.5.dp)
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Details Grid (Input/Output/Logic)
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Row {
+                                            Text(
+                                                text = "EXPECTS INPUT : ",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = androidx.compose.ui.graphics.Color(0xFFB0BEC5),
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                modifier = Modifier.width(100.dp)
+                                            )
+                                            Text(
+                                                text = inspectNode.inputDescription,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = androidx.compose.ui.graphics.Color(0xFFECEFF1),
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 10.sp
+                                                ),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+
+                                        Row {
+                                            Text(
+                                                text = "YIELDS OUTPUT : ",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = androidx.compose.ui.graphics.Color(0xFFB0BEC5),
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                modifier = Modifier.width(100.dp)
+                                            )
+                                            Text(
+                                                text = inspectNode.outputDescription,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = androidx.compose.ui.graphics.Color(0xFFECEFF1),
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 10.sp
+                                                ),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+
+                                        Row {
+                                            Text(
+                                                text = "NODE LOGIC   : ",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = androidx.compose.ui.graphics.Color(0xFFB0BEC5),
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                modifier = Modifier.width(100.dp)
+                                            )
+                                            Text(
+                                                text = inspectNode.logicRules,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = androidx.compose.ui.graphics.Color(0xFF00E676),
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 10.sp
+                                                ),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "SYSTEM INSTRUCTION BLUEPRINT / GRAPH STATE DECORATOR:",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = androidx.compose.ui.graphics.Color(0xFF81C784),
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(androidx.compose.ui.graphics.Color(0xFF121212), RoundedCornerShape(6.dp))
+                                                .padding(8.dp)
+                                        ) {
+                                            Text(
+                                                text = inspectNode.blueprintPrompt,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = androidx.compose.ui.graphics.Color(0xFFECEFF1),
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 9.sp
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
             }
         }
     }

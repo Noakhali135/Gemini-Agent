@@ -100,6 +100,10 @@ class ChatViewModel(
     private val _currentStreamingAnswer = MutableStateFlow("")
     val currentStreamingAnswer: StateFlow<String> = _currentStreamingAnswer.asStateFlow()
 
+    // Agentic Loop state flow representing LangGraph agent decisions & active nodes
+    private val _activeAgentState = MutableStateFlow("IDLE")
+    val activeAgentState: StateFlow<String> = _activeAgentState.asStateFlow()
+
     init {
         // Fallback to BuildConfig if sharedPrefs is empty
         if (_apiKey.value.isEmpty() && BuildConfig.GEMINI_API_KEY.isNotEmpty() && BuildConfig.GEMINI_API_KEY != "MY_GEMINI_API_KEY") {
@@ -176,6 +180,7 @@ class ChatViewModel(
         }
 
         viewModelScope.launch {
+            _activeAgentState.value = "PLANNER"
             // 1. Ensure conversation exists, otherwise generate a new thread
             val convId = _currentConversationId.value ?: run {
                 val newConvId = repository.insertConversation(
@@ -235,6 +240,7 @@ class ChatViewModel(
 
             while (continueReActLoop && stepIndex < maxSteps) {
                 stepIndex++
+                _activeAgentState.value = "PLANNER"
 
                 _isStreaming.value = true
                 _currentStreamingThought.value = ""
@@ -297,12 +303,14 @@ class ChatViewModel(
                                 if (thinkingStartTime == 0L) {
                                     thinkingStartTime = System.currentTimeMillis()
                                 }
+                                _activeAgentState.value = "THINKING"
                                 _currentStreamingThought.value += thoughtChunk
                             }
                             if (answerChunk != null && answerChunk.isNotEmpty()) {
                                 if (thinkingStartTime != 0L && thinkingEndTime == 0L) {
                                     thinkingEndTime = System.currentTimeMillis()
                                 }
+                                _activeAgentState.value = "GENERATING"
                                 _currentStreamingAnswer.value += answerChunk
                             }
                         }
@@ -337,6 +345,7 @@ class ChatViewModel(
                         // Check for tool execution calls in the model's answer
                         val hasTools = hasWorkspaceTools(finalAnswer)
                         if (hasTools) {
+                            _activeAgentState.value = "EXECUTOR"
                             // Execute advanced multi-turn tools and collect stdout/feedback
                             val toolOutputsSummary = executeToolsAndCollectResults(getApplication(), finalAnswer)
 
@@ -353,6 +362,7 @@ class ChatViewModel(
                             continueReActLoop = true
                         } else {
                             // No workspace tools, ReAct loop complete!
+                            _activeAgentState.value = "HUMAN_VAL"
                             continueReActLoop = false
                         }
                     } else {
@@ -374,6 +384,7 @@ class ChatViewModel(
                     _currentStreamingAnswer.value = ""
                 }
             }
+            _activeAgentState.value = "HUMAN_VAL"
         }
     }
 
