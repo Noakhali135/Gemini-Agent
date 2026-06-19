@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Gemini Chat Client",
+  "description": "An Android client to stream conversations with Gemini models, highlighting real-time thinking and answers with custom API keys and model IDs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
